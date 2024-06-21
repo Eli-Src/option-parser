@@ -12,23 +12,19 @@
 
 class Parser {
 public:
-    // TODO: Lower case? 
-    enum class argument_types {
+    enum class Argument_Types {
         Int,
         Double,
         Bool,
-        String_view
+        String_View
     };
 
 private:
-    // TODO: Check if std::monostate needed
     using parsed_option_types = std::variant<int, double, bool, std::string_view>;
 
-    // TODO: Think about reajusting sequence
     struct Option {
         bool requires_argument;
-        // TODO: Good?
-        argument_types argument_type;
+        Argument_Types argument_type;
         std::string_view description;
         std::string_view long_identifier;
         std::optional<char> short_identifier;
@@ -94,7 +90,7 @@ private:
             }
             
             switch (m_options[option_name].argument_type) {
-                case argument_types::Int: {
+                case Argument_Types::Int: {
                     const std::optional<int> result = to_int(option_argument);
                     if (result) {
                         m_parsed_options[option_name] = *result;
@@ -105,7 +101,7 @@ private:
                         std::exit(1);
                     }
                 } 
-                case argument_types::Double: {
+                case Argument_Types::Double: {
                     const std::optional<double> result = to_double(option_argument);
                     if (result) {
                         m_parsed_options[option_name] = *result;
@@ -116,7 +112,7 @@ private:
                         std::exit(1);
                     }
                 }
-                case argument_types::Bool: {
+                case Argument_Types::Bool: {
                     const std::optional<bool> result = to_bool(option_argument);
                     if (result) {
                         m_parsed_options[option_name] = *result;
@@ -127,22 +123,22 @@ private:
                         std::exit(1);
                     }
                 }
-                case argument_types::String_view:
+                case Argument_Types::String_View:
                     m_parsed_options[option_name] = option_argument;
             }
 
         } else {
             switch (m_options[option_name].argument_type) {
-                case argument_types::Int:
+                case Argument_Types::Int:
                     m_parsed_options[option_name] = 0;
                     break;
-                case argument_types::Double:
+                case Argument_Types::Double:
                     m_parsed_options[option_name] = 0.0;
                     break;
-                case argument_types::Bool:
+                case Argument_Types::Bool:
                     m_parsed_options[option_name] = false;
                     break;
-                case argument_types::String_view:
+                case Argument_Types::String_View:
                     m_parsed_options[option_name] = " ";
                     break;
             }
@@ -183,21 +179,24 @@ public:
     void add_option(std::string_view long_identifier,
                     std::string_view description,
                     bool requires_argument = false,
-                    argument_types argument_type = argument_types::String_view) {
+                    Argument_Types argument_type = Argument_Types::String_View) {
         // check for duplicates
         if (m_options.find(long_identifier) != m_options.end()) {
             std::cerr << "Different options cannot have the same long identifier" << '\n';
             std::exit(1);
         }
 
-        m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
+        if (!requires_argument)
+            m_options[long_identifier] = Option{requires_argument, Argument_Types::Bool, description, long_identifier};
+        else
+            m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
     }
 
     void add_option(char short_identifier,
                     std::string_view long_identifier,
                     std::string_view description,
                     bool requires_argument = false,
-                    argument_types argument_type = argument_types::String_view) {
+                    Argument_Types argument_type = Argument_Types::String_View) {
         // check for duplicates
         if (m_options.find(long_identifier) != m_options.end()) {
             std::cerr << "Different options cannot have the same long identifier" << '\n';
@@ -210,7 +209,10 @@ public:
             }
         }
 
-        m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier, short_identifier};
+        if (!requires_argument)
+            m_options[long_identifier] = Option{requires_argument, Argument_Types::Bool, description, long_identifier};
+        else
+            m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
     }
 
     void parse(int argc, char* argv[]) {
@@ -270,15 +272,6 @@ public:
         }
         return std::nullopt;
     }
-    
-    // TODO: Think about different return type
-    // std::optional<parsed_option_types> get_option_value(std::string_view name) const {
-    //     const auto it = m_parsed_options.find(name);
-    //     if (it != m_parsed_options.end()) {
-    //         return it->second;
-    //     }
-    //     return {};
-    // }
 
     void print_options(std::vector<std::string_view> print_order = {}) const {
         std::cout << "Options: \n";
