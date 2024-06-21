@@ -34,7 +34,7 @@ private:
     std::unordered_map<std::string_view, Option> m_options;
     std::unordered_map<std::string_view, parsed_option_types> m_parsed_options;
 
-    std::optional<int> to_int(std::string_view input) {
+    std::optional<int> to_int(std::string_view input) const {
         int out;
         const char *end = input.begin() + input.size();
         const auto result = std::from_chars(input.begin(), end, out);
@@ -51,7 +51,7 @@ private:
         const std::string str{input}; 
         try {
             size_t pos;
-            double result = std::stod(str, &pos);
+            const double result = std::stod(str, &pos);
 
             // Ensure that the entire string was used in conversion
             if (pos == str.size()) {
@@ -151,7 +151,7 @@ private:
             if (pair.second.short_identifier.has_value()) {
                 if (pair.second.short_identifier == short_option_name) {
                     // change short identifer to long identifier
-                    std::string_view long_option_name = pair.second.long_identifier;
+                    const std::string_view long_option_name = pair.second.long_identifier;
                     if (m_options[long_option_name].requires_argument) {
                         // if argument needed but isn't given
                         if (option_argument.empty()) {
@@ -219,7 +219,7 @@ public:
         if (argc < 2) return;
 
         for (int i = 1; i < argc; ++i) {
-            std::string_view arg = argv[i];
+            const std::string_view arg = argv[i];
             std::string_view option_name;
             std::string_view option_argument;
             bool is_short_argument = false;
@@ -235,7 +235,7 @@ public:
             }
 
             // split string to check if flag value got assigned with equal sign
-            std::size_t equal_sign_pos = option_name.find('='); 
+            const std::size_t equal_sign_pos = option_name.find('='); 
 
             // check if equal sign was found
             if (equal_sign_pos != option_name.npos) {
@@ -282,7 +282,7 @@ public:
                     continue;
                 }
 
-                auto it = m_options.find(option_name);
+                const auto it = m_options.find(option_name);
                 if (it == m_options.end()) {
                     std::cerr << option_name << " is not a existing option\n";
                     std::exit(1);
