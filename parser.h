@@ -1,25 +1,83 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <charconv>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 class Parser {
 public:
+    // TODO: Lower case? 
+    enum class argument_types {
+        Int,
+        Double,
+        Bool,
+        String_view
+    };
+
+private:
+    // TODO: Check if std::monostate needed
+    using parsed_option_types = std::variant<int, double, bool, std::string_view>;
+
+    // TODO: Think about reajusting sequence
     struct Option {
-        std::string_view description;
         bool requires_argument;
+        // TODO: Good?
+        argument_types argument_type;
+        std::string_view description;
         std::string_view long_identifier;
         std::optional<char> short_identifier;
     };
 
-private:
     std::string_view m_program_name;
     std::unordered_map<std::string_view, Option> m_options;
-    std::unordered_map<std::string_view, std::string_view> m_parsed_options;
+    std::unordered_map<std::string_view, parsed_option_types> m_parsed_options;
+
+    std::optional<int> to_int(std::string_view input) {
+        int out;
+        const char *end = input.begin() + input.size();
+        const auto result = std::from_chars(input.begin(), end, out);
+        if(result.ec == std::errc::invalid_argument ||
+           result.ec == std::errc::result_out_of_range ||
+           result.ptr != end) {
+            return std::nullopt;
+        }
+        return out;
+    }
+
+    // TODO: Check for better solution
+    std::optional<double> to_double(std::string_view input) {
+        const std::string str{input}; 
+        try {
+            size_t pos;
+            double result = std::stod(str, &pos);
+
+            // Ensure that the entire string was used in conversion
+            if (pos == str.size()) {
+                return result;
+            } else {
+                return std::nullopt;
+            }
+        } catch (const std::exception&) {
+            return std::nullopt;
+        }
+    }
+
+    std::optional<bool> to_bool(std::string_view input) {
+        if (input == "true") {
+            return true;
+        } else if (input == "false") {
+            return false;
+        } else {
+            return std::nullopt;
+        }
+}
+
 
     void process_long_option(std::string_view option_name, std::string_view option_argument) {
         if (m_options.find(option_name) == m_options.end()) {
@@ -34,10 +92,60 @@ private:
                     ": option --" << option_name << " requires an argument\n";
                 std::exit(1);
             }
+            
+            switch (m_options[option_name].argument_type) {
+                case argument_types::Int: {
+                    const std::optional<int> result = to_int(option_argument);
+                    if (result) {
+                        m_parsed_options[option_name] = *result;
+                        break;
+                    } else {
+                        std::cerr << m_program_name <<
+                            ": option --" << option_name << " requires a integer argument\n";
+                        std::exit(1);
+                    }
+                } 
+                case argument_types::Double: {
+                    const std::optional<double> result = to_double(option_argument);
+                    if (result) {
+                        m_parsed_options[option_name] = *result;
+                        break;
+                    } else {
+                        std::cerr << m_program_name <<
+                            ": option --" << option_name << " requires a double argument\n";
+                        std::exit(1);
+                    }
+                }
+                case argument_types::Bool: {
+                    const std::optional<bool> result = to_bool(option_argument);
+                    if (result) {
+                        m_parsed_options[option_name] = *result;
+                        break;
+                    } else {
+                        std::cerr << m_program_name <<
+                            ": option --" << option_name << " requires a bool argument\n";
+                        std::exit(1);
+                    }
+                }
+                case argument_types::String_view:
+                    m_parsed_options[option_name] = option_argument;
+            }
 
-            m_parsed_options[option_name] = option_argument;
         } else {
-            m_parsed_options[option_name] = " ";
+            switch (m_options[option_name].argument_type) {
+                case argument_types::Int:
+                    m_parsed_options[option_name] = 0;
+                    break;
+                case argument_types::Double:
+                    m_parsed_options[option_name] = 0.0;
+                    break;
+                case argument_types::Bool:
+                    m_parsed_options[option_name] = false;
+                    break;
+                case argument_types::String_view:
+                    m_parsed_options[option_name] = " ";
+                    break;
+            }
         }
     }
 
@@ -66,38 +174,43 @@ private:
     }
 
 public:
+    std::string_view get_program_name() const {return m_program_name;}
+
     Parser(std::string_view program_name) :
         m_program_name{program_name}
     {}
 
-    void add_option(std::string_view description,
-                    bool requires_argument,
-                    std::string_view long_identifier,
-                    const std::optional<char>& short_identifier = std::nullopt) {
+    void add_option(std::string_view long_identifier,
+                    std::string_view description,
+                    bool requires_argument = false,
+                    argument_types argument_type = argument_types::String_view) {
         // check for duplicates
         if (m_options.find(long_identifier) != m_options.end()) {
             std::cerr << "Different options cannot have the same long identifier" << '\n';
             std::exit(1);
-        } else if (short_identifier.has_value()) {
-            for (const auto& pair : m_options) {
-                if (pair.second.short_identifier == short_identifier) {
-                    std::cerr << "Different options cannot have the same short identifier" << '\n';
-                    std::exit(1);
-                }
+        }
+
+        m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
+    }
+
+    void add_option(char short_identifier,
+                    std::string_view long_identifier,
+                    std::string_view description,
+                    bool requires_argument = false,
+                    argument_types argument_type = argument_types::String_view) {
+        // check for duplicates
+        if (m_options.find(long_identifier) != m_options.end()) {
+            std::cerr << "Different options cannot have the same long identifier" << '\n';
+            std::exit(1);
+        } 
+        for (const auto& pair : m_options) {
+            if (pair.second.short_identifier == short_identifier) {
+                std::cerr << "Different options cannot have the same short identifier" << '\n';
+                std::exit(1);
             }
         }
 
-        m_options[long_identifier] = Option{description, requires_argument, long_identifier, short_identifier};
-    }
-
-    std::string_view get_program_name() const {return m_program_name;}
-
-    std::string_view get_option_value(std::string_view name) const {
-        auto it = m_parsed_options.find(name);
-        if (it != m_parsed_options.end()) {
-            return it->second;
-        }
-        return "";
+        m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier, short_identifier};
     }
 
     void parse(int argc, char* argv[]) {
@@ -142,10 +255,30 @@ public:
                         process_short_option(option_name[j], option_argument);
                     }
                 }
-            } else
-            process_long_option(option_name, option_argument);
+            } else process_long_option(option_name, option_argument);
         }
     }
+
+    // TODO: Think about adding check so that only supported types are working
+    template <typename T = std::string_view>
+    std::optional<T> get_option_value(std::string_view name) const {
+        const auto it = m_parsed_options.find(name);
+        if (it != m_parsed_options.end()) {
+            if (std::holds_alternative<T>(it->second)) {
+                return std::get<T>(it->second);
+            }
+        }
+        return std::nullopt;
+    }
+    
+    // TODO: Think about different return type
+    // std::optional<parsed_option_types> get_option_value(std::string_view name) const {
+    //     const auto it = m_parsed_options.find(name);
+    //     if (it != m_parsed_options.end()) {
+    //         return it->second;
+    //     }
+    //     return {};
+    // }
 
     void print_options(std::vector<std::string_view> print_order = {}) const {
         std::cout << "Options: \n";

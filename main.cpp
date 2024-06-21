@@ -4,26 +4,33 @@
 
 int main(int argc, char* argv[]) {
     Parser parser = {"Parser"};
-    parser.add_option("Display this help message", false, "help", 'h');
-    parser.add_option("Input file name", true, "input", 'i');
-    parser.add_option("Output file name", true, "output", 'o');
-    parser.add_option("Goofy ahhh", true, "goofy");
+    parser.add_option('h', "help", "Display this help message");
+    parser.add_option('i', "input", "Input file name", true, Parser::argument_types::String_view);
+    parser.add_option('o', "output", "Output file", true, Parser::argument_types::Bool);
+    // TODO: if require_argument=false then return bool automaticly
+    parser.add_option('a', "idk", "This is a test", false, Parser::argument_types::Double);
 
     parser.parse(argc, argv);
 
-    if (!parser.get_option_value("help").empty()) {
-        parser.print_options({"goofy", "", "input", "output", "help"});
+    if (parser.get_option_value("help")) {
+        parser.print_options({"idk", "", "input", "output", "help"});
         return 0;
     }
 
-    const std::string_view input = parser.get_option_value("input");
-    if (input.empty()) {
-        std::cerr << parser.get_program_name() << ": option --input is missing\n";
+    // const std::optional<bool> b = parser.get_option_value<bool>("output");
+    // if (!b) {
+    //     std::cerr << parser.get_program_name() << ": option --output is missing\n";
+    //     return 1;
+    // }
+
+    const std::optional<double> idk = parser.get_option_value<double>("idk");
+    if (!idk) {
+        std::cerr << parser.get_program_name() << ": option --idk is missing\n";
         return 1;
     }
-    if (!input.empty()) {
-        std::cout << parser.get_program_name() << ": --input: " << input << '\n';
-    }
+
+    // std::cout << parser.get_program_name() << ": --output: " << *b << '\n';
+    std::cout << parser.get_program_name() << ": --idk: " << *idk << '\n';
 
     return 0;
 }
