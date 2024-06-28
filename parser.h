@@ -46,7 +46,6 @@ private:
         return out;
     }
 
-    // TODO: Check for better solution
     std::optional<double> to_double(std::string_view input) {
         const std::string str{input}; 
         try {
@@ -128,20 +127,7 @@ private:
             }
 
         } else {
-            switch (m_options[option_name].argument_type) {
-                case Argument_Types::Int:
-                    m_parsed_options[option_name] = 0;
-                    break;
-                case Argument_Types::Double:
-                    m_parsed_options[option_name] = 0.0;
-                    break;
-                case Argument_Types::Bool:
-                    m_parsed_options[option_name] = false;
-                    break;
-                case Argument_Types::String_View:
-                    m_parsed_options[option_name] = " ";
-                    break;
-            }
+            m_parsed_options[option_name] = true;
         }
     }
 
@@ -177,26 +163,31 @@ public:
     {}
 
     void add_option(std::string_view long_identifier,
-                    std::string_view description,
-                    bool requires_argument = false,
-                    Argument_Types argument_type = Argument_Types::String_View) {
+                    std::string_view description) {
         // check for duplicates
         if (m_options.find(long_identifier) != m_options.end()) {
             std::cerr << "Different options cannot have the same long identifier" << '\n';
             std::exit(1);
         }
 
-        if (!requires_argument)
-            m_options[long_identifier] = Option{requires_argument, Argument_Types::Bool, description, long_identifier};
-        else
-            m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
+        m_options[long_identifier] = Option{false, Argument_Types::Bool, description, long_identifier};
+    }
+
+    void add_option(std::string_view long_identifier,
+                    std::string_view description,
+                    Argument_Types argument_type) {
+        // check for duplicates
+        if (m_options.find(long_identifier) != m_options.end()) {
+            std::cerr << "Different options cannot have the same long identifier" << '\n';
+            std::exit(1);
+        }
+
+        m_options[long_identifier] = Option{true, argument_type, description, long_identifier};
     }
 
     void add_option(char short_identifier,
                     std::string_view long_identifier,
-                    std::string_view description,
-                    bool requires_argument = false,
-                    Argument_Types argument_type = Argument_Types::String_View) {
+                    std::string_view description) {
         // check for duplicates
         if (m_options.find(long_identifier) != m_options.end()) {
             std::cerr << "Different options cannot have the same long identifier" << '\n';
@@ -209,10 +200,26 @@ public:
             }
         }
 
-        if (!requires_argument)
-            m_options[long_identifier] = Option{requires_argument, Argument_Types::Bool, description, long_identifier};
-        else
-            m_options[long_identifier] = Option{requires_argument, argument_type, description, long_identifier};
+        m_options[long_identifier] = Option{false, Argument_Types::Bool, description, long_identifier, short_identifier};
+    }
+
+    void add_option(char short_identifier,
+                    std::string_view long_identifier,
+                    std::string_view description,
+                    Argument_Types argument_type) {
+        // check for duplicates
+        if (m_options.find(long_identifier) != m_options.end()) {
+            std::cerr << "Different options cannot have the same long identifier" << '\n';
+            std::exit(1);
+        } 
+        for (const auto& pair : m_options) {
+            if (pair.second.short_identifier == short_identifier) {
+                std::cerr << "Different options cannot have the same short identifier" << '\n';
+                std::exit(1);
+            }
+        }
+
+        m_options[long_identifier] = Option{true, argument_type, description, long_identifier, short_identifier};
     }
 
     void parse(int argc, char* argv[]) {
@@ -261,10 +268,9 @@ public:
         }
     }
 
-    // TODO: Think about adding check so that only supported types are working
-    template <typename T = std::string_view>
-    std::optional<T> get_option_value(std::string_view name) const {
-        const auto it = m_parsed_options.find(name);
+    template <typename T = bool>
+    std::optional<T> get_option_value(std::string_view long_identifier) const {
+        const auto it = m_parsed_options.find(long_identifier);
         if (it != m_parsed_options.end()) {
             if (std::holds_alternative<T>(it->second)) {
                 return std::get<T>(it->second);
