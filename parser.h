@@ -170,7 +170,7 @@ public:
             std::exit(1);
         }
 
-        m_options[long_identifier] = Option{false, Argument_Types::Bool, description, long_identifier};
+        m_options[long_identifier] = Option{false, Argument_Types::Bool, description, long_identifier, std::nullopt};
     }
 
     void add_option(std::string_view long_identifier,
@@ -182,7 +182,7 @@ public:
             std::exit(1);
         }
 
-        m_options[long_identifier] = Option{true, argument_type, description, long_identifier};
+        m_options[long_identifier] = Option{true, argument_type, description, long_identifier, std::nullopt};
     }
 
     void add_option(char short_identifier,
