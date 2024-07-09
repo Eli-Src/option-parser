@@ -148,7 +148,7 @@ private:
 
                         m_parsed_options[long_option_name] = option_argument;
                     } else {
-                        m_parsed_options[long_option_name] = " ";
+                        m_parsed_options[long_option_name] = true;
                     }
                 }
             }
